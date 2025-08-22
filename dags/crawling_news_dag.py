@@ -32,7 +32,7 @@ default_args = {'owner': dag_owner,
 
 # 공통 변수들
 DRIVER_PATH = '/usr/bin/chromedriver'
-MAX_PAGE = 1
+MAX_PAGE = 2
 BUCKET_NAME = "ian-geonewsapt"
 PREFIX = "news_dataframe/"  # 폴더 경로
 log = LoggingMixin().log
@@ -134,7 +134,24 @@ with DAG(dag_id='crawling_news',
             current += PAGES_PER_SCREEN
 
         # 중복 제거
+        #https://www.chosun.com/economy/real_estate/2025/08/22/7XO543AOTM4IRLMPABDCAMDUQA/:
         article_links = list(set([href for href in hrefs if "/economy/real_estate/20" in href]))
+        filtered_links = []
+        
+        # 오늘발행된 신문기사와 비교를 하기 위한 변수
+        today_str = datetime.today().strftime("%Y/%m/%d")
+
+        for link in article_links:
+            # 링크에서 날짜 추출
+            match = re.search(r'/(\d{4}/\d{2}/\d{2})/', link)
+            if match:
+                link_date = match.group(1)
+                if link_date == today_str:
+                    filtered_links.append(link)
+
+        # filtered_links에는 오늘 날짜 기사만 남음
+        article_links = filtered_links
+
         print(f"🔗 Total collected article URLs: {len(article_links)}")
 
         article = {}
@@ -180,7 +197,7 @@ with DAG(dag_id='crawling_news',
         df.to_csv(csv_buffer, index=False)
 
         s3_hook = S3Hook(aws_conn_id='s3_conn')
-        key = f"news_dataframe/chosun_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        key = f"news_dataframe/chosun.csv"
         s3_hook.load_string(csv_buffer.getvalue(), key=key, bucket_name=BUCKET_NAME, replace=True)
         return ''
     
@@ -224,8 +241,16 @@ with DAG(dag_id='crawling_news',
             except Exception as e:
                 print(f" Failed to process page {page}: {e}")
 
-        article_links = list(article_links)
-        print(f"🔗 Total collected article URLs: {len(article_links)}")
+        today_str = datetime.today().strftime("%Y%m%d")  # 오늘 날짜 문자열 "YYYYMMDD"
+        filtered_links = []
+
+        for link in article_links:
+            match = re.search(r'/(\d{8})/', link)  # /YYYYMMDD/ 추출
+            if match and match.group(1) == today_str:
+                filtered_links.append(link)
+
+        article_links = filtered_links
+        print(f"Total collected article URLs for today: {len(article_links)}")
 
         # 본문 수집
         article = {}
@@ -270,7 +295,7 @@ with DAG(dag_id='crawling_news',
         df.to_csv(csv_buffer, index=False)
 
         s3_hook = S3Hook(aws_conn_id='s3_conn')
-        key = f"news_dataframe/dong_a_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        key = f"news_dataframe/dong_a.csv"
         s3_hook.load_string(csv_buffer.getvalue(), key=key, bucket_name=BUCKET_NAME, replace=True)
         return ''
     
@@ -325,7 +350,7 @@ with DAG(dag_id='crawling_news',
             except Exception as e:
                 print(f" 페이지 {page+1} 처리 중 오류: {e}")
                 continue
-
+        #https://www.joongang.co.kr/article/25360704
         article_links = list(set(article_links))
         print(f" 총 {len(article_links)}개의 기사 링크 수집 완료")
 
@@ -369,7 +394,7 @@ with DAG(dag_id='crawling_news',
         df.to_csv(csv_buffer, index=False)
 
         s3_hook = S3Hook(aws_conn_id='s3_conn')
-        key = f"news_dataframe/joonang_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        key = f"news_dataframe/joonang.csv"
         s3_hook.load_string(csv_buffer.getvalue(), key=key, bucket_name=BUCKET_NAME, replace=True)
         return ''
 
@@ -429,8 +454,16 @@ with DAG(dag_id='crawling_news',
             collect_links_from_category(cat_url, cat_name)
 
         # 중복 제거
-        article_list = list(set(article_links))
-        print(f"\n총 {len(article_list)}개의 기사 링크를 수집했습니다.")
+        today_str = datetime.today().strftime("%Y%m%d")  # 오늘 날짜 "YYYYMMDD"
+        filtered_links = []
+        #https://www.hankyung.com/article/2025060189501
+        for link in article_links:
+            match = re.search(r'/article/(\d{8})', link)  # /article/뒤 8자리 숫자 추출
+            if match and match.group(1) == today_str:
+                filtered_links.append(link)
+
+        article_list = filtered_links
+        print(f"총 {len(article_list)}개의 오늘 기사 링크 수집 완료")
 
         # 본문 수집
         article = {}
@@ -477,7 +510,7 @@ with DAG(dag_id='crawling_news',
         df.to_csv(csv_buffer, index=False)
 
         s3_hook = S3Hook(aws_conn_id='s3_conn')
-        key = f"news_dataframe/korea_eco_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        key = f"news_dataframe/korea_eco.csv"
         s3_hook.load_string(csv_buffer.getvalue(), key=key, bucket_name=BUCKET_NAME, replace=True)
         return ''
 
@@ -505,7 +538,7 @@ with DAG(dag_id='crawling_news',
             replace=True
         )
 
-    @task
+    @task 
     def save_to_db():
         pg_hook = PostgresHook(postgres_conn_id='pg_conn')
         insert_sql = """
@@ -533,6 +566,8 @@ with DAG(dag_id='crawling_news',
         for _, row in final_df.iterrows():
             pg_hook.run(insert_sql, parameters=(row['date'], row['url'], row['content'], row['publisher']))
 
+        return ''
+            
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
     
@@ -541,6 +576,5 @@ with DAG(dag_id='crawling_news',
     joonang_task = joonang()
     korea_task = korea_eco()
     save_to_db_task = save_to_db()
-    #merged_task = save_to_s3(chosun_task, dong_a_task, joonang_task, korea_task)
 
-    start >> [chosun_task, dong_a_task, joonang_task, korea_task] >> save_to_db_task >> end #>> merged_task >> end
+    start >> [chosun_task, dong_a_task, joonang_task, korea_task]>> save_to_db_task >> end #>> merged_task >> end
