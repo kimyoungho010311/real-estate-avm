@@ -35,5 +35,5 @@ with DAG(dag_id='db_dag',
         """
         pg_hook.run(create_news_table_sql)
 
-    
+        
     create_news_table()
