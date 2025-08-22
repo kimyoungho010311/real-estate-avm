@@ -2,6 +2,8 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.utils.log.logging_mixin import LoggingMixin
 from datetime import datetime, timedelta 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -28,9 +30,12 @@ default_args = {'owner': dag_owner,
         #'retry_delay': timedelta(seconds=3)
         }
 
+# 공통 변수들
 DRIVER_PATH = '/usr/bin/chromedriver'
 MAX_PAGE = 1
 BUCKET_NAME = "ian-geonewsapt"
+PREFIX = "news_dataframe/"  # 폴더 경로
+log = LoggingMixin().log
 
 with DAG(dag_id='crawling_news',
         default_args=default_args,
@@ -38,7 +43,19 @@ with DAG(dag_id='crawling_news',
         start_date=datetime(2019,1,1),
         #schedule='* * * * *',
         catchup=False,
-        tags=['.']
+        tags=['.'],
+        doc_md="""
+        ### save_to()
+        XCom으로 각 Task에서 크롤링한 뉴스 데이터를 받아와 S3에 업로드합니다.  
+
+        **주의 : **XCom으로 데이터를 전달받기에는 데이터의 크기가 너무 커 사용을 중지합니다.  
+
+        각 Task에서 S3로 업로드 하는 방향으로 진행합니다.  
+
+        ### save_to_db()
+        S3에 있는 뉴스 데이터들을 불러들여 병합후, DB에 저장합니다.  
+
+        """
 ) as dag:
 
     @task
@@ -447,7 +464,7 @@ with DAG(dag_id='crawling_news',
                 text = "접근 실패"
                 published_date = None
 
-            article[link] = {"text": text, "date": published_date, "publisher": "한국경제"}
+            article[link] = {"content": text, "date": published_date, "publisher": "한국경제"}
 
         driver.quit()
         print(f"\n[INFO] 총 {len(article)}개의 기사 수집 완료.")
@@ -488,6 +505,34 @@ with DAG(dag_id='crawling_news',
             replace=True
         )
 
+    @task
+    def save_to_db():
+        pg_hook = PostgresHook(postgres_conn_id='pg_conn')
+        insert_sql = """
+            INSERT INTO news (date, url, content, publisher)
+            VALUES (%s, %s, %s, %s)
+        """
+        s3_hook = S3Hook(aws_conn_id='s3_conn')
+        keys = s3_hook.list_keys(bucket_name=BUCKET_NAME, prefix=PREFIX)
+        # keys리스트 맨 앞에 이상한 경로가 포함되어 있어 제거함
+        keys = keys[1:]
+
+        #각 파일 읽기
+        dfs = []
+        for key in keys:
+            data_str = s3_hook.read_key(key=key, bucket_name=BUCKET_NAME)
+            print(f"== {key} ==")
+            print(data_str[:200])  # 처음 200자만 출력 예시
+            df = pd.read_csv(StringIO(data_str))
+            df = df[['date', 'url', 'content', 'publisher']]  # 순서 통일
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')  # timestamp 변환
+            dfs.append(df)
+        final_df = pd.concat(dfs, ignore_index=True)
+
+        # Insert to db each row
+        for _, row in final_df.iterrows():
+            pg_hook.run(insert_sql, parameters=(row['date'], row['url'], row['content'], row['publisher']))
+
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
     
@@ -495,7 +540,7 @@ with DAG(dag_id='crawling_news',
     dong_a_task = dong_a()
     joonang_task = joonang()
     korea_task = korea_eco()
+    save_to_db_task = save_to_db()
+    #merged_task = save_to_s3(chosun_task, dong_a_task, joonang_task, korea_task)
 
-    #merged_task = save_to_s3(chosun_task, dong_a_task,joonang_task, korea_task)
-
-    start >> [chosun_task, dong_a_task, joonang_task, korea_task] >> end #>> merged_task >> end
+    start >> [chosun_task, dong_a_task, joonang_task, korea_task] >> save_to_db_task >> end #>> merged_task >> end
