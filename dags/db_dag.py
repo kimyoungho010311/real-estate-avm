@@ -35,5 +35,29 @@ with DAG(dag_id='db_dag',
         """
         pg_hook.run(create_news_table_sql)
 
-        
-    create_news_table()
+    @task
+    def create_apt_table():
+        pg_hook = PostgresHook(postgres_conn_id='pg_conn')
+
+        create_apt_table_sql = """
+        CREATE TABLE IF NOT EXISTS apt(
+            id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+            area_m2 DOUBLE PRECISION,
+            complex_name TEXT,
+            floor SMALLINT,
+            contract_day TIMESTAMP,
+            street_name TEXT,
+            built_year SMALLINT,
+            price_per_m2 DOUBLE PRECISION,
+            apartment_age SMALLINT,
+            alpha DOUBLE PRECISION,
+            longitude DOUBLE PRECISION,
+            latitude DOUBLE PRECISION
+        );
+        """
+        pg_hook.run(create_apt_table_sql)
+
+    news_table_task = create_news_table()
+    apt_table_task = create_apt_table()
+
+    [news_table_task, apt_table_task]

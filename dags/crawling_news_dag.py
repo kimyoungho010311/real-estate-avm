@@ -32,7 +32,7 @@ default_args = {'owner': dag_owner,
 
 # 공통 변수들
 DRIVER_PATH = '/usr/bin/chromedriver'
-MAX_PAGE = 2
+MAX_PAGE = 1
 BUCKET_NAME = "ian-geonewsapt"
 PREFIX = "news_dataframe/"  # 폴더 경로
 log = LoggingMixin().log
@@ -41,7 +41,7 @@ with DAG(dag_id='crawling_news',
         default_args=default_args,
         description='뉴스 크롤링',
         start_date=datetime(2019,1,1),
-        #schedule='* * * * *',
+        schedule='* 8 * * *',
         catchup=False,
         tags=['.'],
         doc_md="""
