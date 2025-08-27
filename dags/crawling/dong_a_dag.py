@@ -26,8 +26,8 @@ from tasks.db import save_to_db
 MAX_PAGE = 3
 DRIVER_PATH = Variable.get("DRIVER_PATH")
 # 오늘 날짜 문자열 "YYYYMMDD"
-today_str = datetime.today().strftime("%Y%m%d")
-print(f"Target date is {today_str}")
+yesterday_str = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
+print(f"Target date is {yesterday_str}")
 dag_owner = 'Ian_Kim'
 
 default_args = {'owner': dag_owner,
@@ -88,7 +88,7 @@ with DAG(dag_id='dong_a',
         filtered_links = []
         for link in article_links:
             match = re.search(r'/(\d{8})/', link)  # /YYYYMMDD/ 추출
-            if match and match.group(1) == today_str:
+            if match and match.group(1) == yesterday_str:
                 filtered_links.append(link)
 
         article_links = filtered_links

@@ -19,4 +19,4 @@ def save_to_db(df):
     for _, row in df.iterrows():
         pg_hook.run(insert_sql, parameters=(row['date'], row['url'], row['content'], row['publisher']))
 
-    return ''
+    return ''   

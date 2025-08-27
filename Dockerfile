@@ -1,22 +1,30 @@
-FROM apache/airflow:3.0.4
+FROM apache/airflow:3.0.4-python3.10
 
-# 패키지 설치는 root로
+# root 권한으로 전환
 USER root
 
+# 크롬 및 드라이버 설치
 RUN apt-get update && \
-    apt-get install -y chromium chromium-driver wget unzip && \
+    apt-get install -y wget unzip xvfb libxi6 libgconf-2-4 chromium chromium-driver && \
+    wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb || apt-get -fy install && \
+    rm -f google-chrome-stable_current_amd64.deb && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /opt/airflow/keys
+COPY gee-service-account.json /opt/airflow/keys/gee-service-account.json
+RUN chown airflow: /opt/airflow/keys/gee-service-account.json
+
+# airflow 계정으로 복귀
 USER airflow
-# Selenium 설치
-RUN pip install --no-cache-dir selenium
 
-RUN pip install --no-cache-dir numpy
 
-RUN apt-get update && apt-get install -y \
-    wget unzip xvfb libxi6 libgconf-2-4 \
-    && wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/116.0.5845.96/chromedriver_linux64.zip \
-    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && chmod +x /usr/local/bin/chromedriver
-RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-    && dpkg -i google-chrome-stable_current_amd64.deb || apt-get -fy install
+# 파이썬 패키지
+RUN pip uninstall -y ee && \
+    pip install --no-cache-dir \
+        selenium \
+        numpy \
+        earthengine-api \
+        Pillow \
+        torch \
+        torchvision
