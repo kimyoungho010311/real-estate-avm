@@ -44,7 +44,7 @@ with DAG(dag_id='apt_sale',
         start_date=datetime(2019,1,1),
         schedule='* 8 * * *',
         catchup=False,
-        tags=['.'],
+        tags=['APT'],
         doc_md="""
         ### apt_data
         국토교통부에서 정해진 기간의 아파트 거래 내역을 크롤링합니다.
