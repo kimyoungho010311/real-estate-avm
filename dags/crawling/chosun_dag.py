@@ -25,7 +25,7 @@ from tasks.db import save_to_db
 MAX_PAGE = int(Variable.get("MAX_PAGE"))
 DRIVER_PATH = Variable.get("DRIVER_PATH")
 # 오늘발행된 신문기사와 비교를 하기 위한 변수
-today_str = datetime.today().strftime("%Y/%m/%d")
+yesterday_str = (datetime.today() - timedelta(days=1)).strftime("%Y/%m/%d")
 
 dag_owner = 'Ian_Kim'
 
@@ -130,7 +130,7 @@ with DAG(dag_id='chosun',
             match = re.search(r'/(\d{4}/\d{2}/\d{2})/', link)
             if match:
                 link_date = match.group(1)
-                if link_date == today_str:
+                if link_date == yesterday_str:
                     filtered_links.append(link)
 
         # filtered_links에는 오늘 날짜 기사만 남음

@@ -3,3 +3,5 @@ data/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+aptprice-464102-2355586a114c.json
+gee-service-account.json

@@ -47,7 +47,7 @@ with DAG(
     def list_s3_files():
         s3_hook = S3Hook(aws_conn_id='s3_conn')
         bucket_name = 'ian-geonewsapt'
-        files = s3_hook.list_keys(bucket_name=bucket_name, prefix='tmp/')
+        files = s3_hook.list_keys(bucket_name=bucket_name, prefix='gee/raw/')
         for f in files:
             print(f)
         return files
