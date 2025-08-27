@@ -1,28 +1,13 @@
 from airflow import DAG
 from airflow.decorators import task
-from airflow.operators.empty import EmptyOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.models import Variable
 from datetime import datetime, timedelta 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    StaleElementReferenceException,
-    TimeoutException,
-    WebDriverException,
-)
-import csv, time, os, requests, glob
+import os, requests
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from io import StringIO
 from tqdm import tqdm
-import psycopg2
 from tasks.apt_processing import remove_price_outliers, calculate_alpha_from_age_count,representative_price,calculate_alpha_row
 
 dag_owner = 'Ian_Kim'
@@ -65,8 +50,6 @@ with DAG(dag_id='apt_sale',
         국토교통부에서 정해진 기간의 아파트 거래 내역을 크롤링합니다.
         """
 ):
-
-    start = EmptyOperator(task_id='start')
 
     @task
     def apt_data():
@@ -238,7 +221,6 @@ with DAG(dag_id='apt_sale',
         except Exception as e:
             print(f"{e}")
 
-    end = EmptyOperator(task_id='end')
     
 
     apt_data_task = apt_data()
@@ -246,4 +228,4 @@ with DAG(dag_id='apt_sale',
     get_log_lat_task = get_log_lat(preprocess_task)
     insert_to_db_task = insert_to_db(get_log_lat_task)
 
-    start >> apt_data_task >> preprocess_task >> get_log_lat_task >> insert_to_db_task >> end
+    apt_data_task >> preprocess_task >> get_log_lat_task >> insert_to_db_task
