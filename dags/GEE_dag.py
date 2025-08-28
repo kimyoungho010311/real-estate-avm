@@ -3,6 +3,7 @@ from airflow.decorators import task
 from airflow.models import Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.sensors.external_task import ExternalTaskSensor
 from datetime import datetime, timedelta 
 import ee  # Google Earth Engine 파이썬 API
 import requests  # 웹 요청 (썸네일 이미지 다운로드)
@@ -161,7 +162,6 @@ with DAG(dag_id='GEE',
                     replace=True
                 )
                             
-                  
 
     read_apt_data_task = read_apt_data()
     gee_task = gee(read_apt_data_task)

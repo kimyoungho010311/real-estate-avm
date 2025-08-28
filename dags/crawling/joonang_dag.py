@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.sdk import Variable
+from airflow.sensors.external_task import ExternalTaskSensor
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -10,15 +11,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
-    StaleElementReferenceException,
+    #StaleElementReferenceException,
     WebDriverException,
     ElementClickInterceptedException,
 )
 from datetime import datetime, timedelta
 import time
-import re
+#import re
 import pandas as pd
-from io import StringIO
+#from io import StringIO
 from tasks.db import save_to_db
 
 MAX_PAGE = int(Variable.get("MAX_PAGE"))
@@ -132,8 +133,18 @@ with DAG(dag_id='joonang',
 
         return df
     
-    
+    wait_for_chosun = ExternalTaskSensor(
+        task_id='wait_for_chosun',
+        external_dag_id='chosun', # 의존할 DAG ID
+        external_task_id=None, # DAG 전체가 끝나야 할 경우 None
+        mode='poke',
+        poke_interval=60, # 60초마다 확인
+        timeout=60*10, # 10분 기다림
+        
+    )
+
+    wait_for_chosun.trigger_rule = "all_done" #upstream 성공유무 상관없이 항상 실행함
     joonang_task = joonang()
     save_to_db_task = save_to_db(joonang_task)
 
-    joonang_task >> save_to_db_task
+    wait_for_chosun >> joonang_task >> save_to_db_task
