@@ -1,24 +1,24 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.sdk import Variable
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+#from airflow.providers.postgres.hooks.postgres import PostgresHook
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+#from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
     StaleElementReferenceException,
     WebDriverException,
-    ElementClickInterceptedException,
+    #ElementClickInterceptedException,
 )
 from datetime import datetime, timedelta 
 import time
 import re
-from io import StringIO
+#from io import StringIO
 import pandas as pd
 from tasks.db import save_to_db
 

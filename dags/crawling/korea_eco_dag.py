@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.sdk import Variable
+from airflow.sensors.external_task import ExternalTaskSensor
 from datetime import datetime, timedelta 
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -13,11 +14,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+#from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import re
 import time
 import pandas as pd
-from io import StringIO
+#from io import StringIO
 from tasks.db import save_to_db
 
 MAX_PAGE = int(Variable.get("MAX_PAGE"))
@@ -152,7 +153,17 @@ with DAG(dag_id='korea_eco',
         df.rename(columns={'index': 'url'}, inplace=True)
         return df
 
+    wait_for_dong_a = ExternalTaskSensor(
+        task_id='wait_for_dong_a',
+        external_dag_id='dong_a', #의존할 DAG ID
+        external_task_id=None, #DAG 전체가 끝나야 할 경우 None
+        mode='poke',
+        poke_interval=60, #60초마다 확인
+        timeout=60*10 #10분 기다림
+    )
+
+    wait_for_dong_a.trigger_rule = "all_done"
     korea_eco_task = korea_eco()
     save_to_db_task = save_to_db(korea_eco_task)
 
-    korea_eco_task >> save_to_db_task
+    wait_for_dong_a >> korea_eco_task >> save_to_db_task

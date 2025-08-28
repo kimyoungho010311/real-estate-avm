@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.models import Variable
+from airflow.sensors.external_task import ExternalTaskSensor
 from datetime import datetime, timedelta 
 import os, requests
 import pandas as pd
@@ -220,9 +221,17 @@ with DAG(dag_id='apt_sale',
                 ))
         except Exception as e:
             print(f"{e}")
+    # 사용 안함
+    # wait_for_korea_eco = ExternalTaskSensor(
+    #     task_id='wait_for_korea_eco',
+    #     external_dag_id='korea_eco',
+    #     external_task_id=None,
+    #     mode='poke',
+    #     poke_interval=60,
+    #     timeout=60*10
+    # )
 
-    
-
+    # wait_for_korea_eco.trigger_rule= "all_done"
     apt_data_task = apt_data()
     preprocess_task = preprocess(apt_data_task)
     get_log_lat_task = get_log_lat(preprocess_task)
