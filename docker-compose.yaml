@@ -73,6 +73,9 @@ x-airflow-common: &airflow-common
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: "/opt/airflow/config/airflow.cfg"
+    # ================= KST 로그 적용 =================
+    TZ: Asia/Seoul
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Seoul
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -207,7 +210,6 @@ services:
         condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
-
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer

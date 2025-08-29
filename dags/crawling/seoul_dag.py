@@ -1,7 +1,6 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Variable
-from airflow.sensors.external_task import ExternalTaskSensor
 from datetime import datetime, timedelta 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -38,7 +37,7 @@ with DAG(dag_id='seoul',
         default_args=default_args,
         description='서울경제 크롤링',
         start_date=datetime(2020,2,2),
-        schedule='* 8 * * *',
+        schedule='5 8 * * *',
         catchup=False,
         tags=['crawling']
 ):
@@ -119,17 +118,7 @@ with DAG(dag_id='seoul',
         df = pd.DataFrame(news_data)
         return df
     
-    wait_for_korea_eco = ExternalTaskSensor(
-        task_id='wait_for_korea_eco',
-        external_dag_id='korea_eco',
-        external_task_id=None,
-        mode='poke',
-        poke_interval=10,
-        timeout=60*10
-    )
-
-    wait_for_korea_eco.trigger_rule='all_done'
     seoul_eco_task = seoul_eco()
     save_to_db_task = save_to_db(seoul_eco_task)
 
-    wait_for_korea_eco >> seoul_eco_task >> save_to_db_task
+    seoul_eco_task >> save_to_db_task

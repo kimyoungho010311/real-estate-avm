@@ -39,7 +39,7 @@ with DAG(dag_id='chosun',
         default_args=default_args,
         description='조선일보 크롤링',
         start_date=datetime(2022,2,2),
-        schedule='* 8 * * *',
+        schedule='30 7 * * *',
         catchup=False,
         tags=['crawling']
 ):

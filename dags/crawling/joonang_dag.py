@@ -1,7 +1,6 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.sdk import Variable
-from airflow.sensors.external_task import ExternalTaskSensor
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -37,7 +36,7 @@ with DAG(dag_id='joonang',
         default_args=default_args,
         description='중앙일보 크롤링, 중앙일보는 링크에 날짜가 없어 추가적인 구현 필요',
         start_date=datetime(2020,2,2),
-        schedule='* 8 * * *',
+        schedule='* 7 * * *',
         catchup=False,
         tags=['crawling']
 ):
@@ -133,18 +132,7 @@ with DAG(dag_id='joonang',
 
         return df
     
-    wait_for_chosun = ExternalTaskSensor(
-        task_id='wait_for_chosun',
-        external_dag_id='chosun', # 의존할 DAG ID
-        external_task_id=None, # DAG 전체가 끝나야 할 경우 None
-        mode='poke',
-        poke_interval=60, # 60초마다 확인
-        timeout=60*10, # 10분 기다림
-        
-    )
-
-    wait_for_chosun.trigger_rule = "all_done" #upstream 성공유무 상관없이 항상 실행함
     joonang_task = joonang()
     save_to_db_task = save_to_db(joonang_task)
 
-    wait_for_chosun >> joonang_task >> save_to_db_task
+    joonang_task >> save_to_db_task

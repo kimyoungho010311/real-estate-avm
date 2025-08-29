@@ -15,6 +15,10 @@ RUN mkdir -p /opt/airflow/keys
 COPY gee-service-account.json /opt/airflow/keys/gee-service-account.json
 RUN chown airflow: /opt/airflow/keys/gee-service-account.json
 
+# 서울 시간대 설정
+ENV TZ=Asia/Seoul
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # airflow 계정으로 복귀
 USER airflow
 

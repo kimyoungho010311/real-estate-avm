@@ -1,7 +1,6 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.sdk import Variable
-from airflow.sensors.external_task import ExternalTaskSensor
 #from airflow.providers.postgres.hooks.postgres import PostgresHook
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -41,7 +40,7 @@ with DAG(dag_id='dong_a',
         default_args=default_args,
         description='동아일보 크롤링',
         start_date=datetime(2020,2,2),
-        schedule='* 8 * * *',
+        schedule='20 7 * * *',
         catchup=False,
         tags=['crawling']
 ):
@@ -136,17 +135,8 @@ with DAG(dag_id='dong_a',
 
         return df
     
-    wait_for_joonang = ExternalTaskSensor(
-        task_id='wait_for_joonang',
-        external_dag_id='joonang', #의존할 DAG ID
-        external_task_id=None, #DAG 전체가 끝나야 할 경우 None
-        mode='poke',
-        poke_interval=60, #60초마다 확인
-        timeout=60*10 #10분 기다림
-    )
 
-    wait_for_joonang.trigger_rule = "all_done"
     dong_a_task = dong_a()
     save_to_db_task = save_to_db(dong_a_task)
 
-    wait_for_joonang >> dong_a_task >> save_to_db_task
+    dong_a_task >> save_to_db_task
