@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from tasks.apt_processing import remove_price_outliers, calculate_alpha_from_age_count,representative_price,calculate_alpha_row
-
+import chardet
 dag_owner = 'Ian_Kim'
 
 default_args = {'owner': dag_owner,
@@ -43,7 +43,7 @@ with DAG(dag_id='apt_sale',
         default_args=default_args,
         #description='',
         start_date=datetime(2019,1,1),
-        schedule='* 8 * * *',
+        schedule='* 8 * * 1-5',
         catchup=False,
         tags=['APT'],
         doc_md="""
@@ -179,7 +179,7 @@ with DAG(dag_id='apt_sale',
     
     @task
     def insert_to_db(csv_path):
-        import chardet
+        
 
         with open("/tmp/apt_sale_downloads/apt_with_long_lat.csv", "rb") as f:
             rawdata = f.read()
