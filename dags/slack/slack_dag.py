@@ -1,8 +1,7 @@
 from airflow import DAG
 from airflow.decorators import task
-from airflow.models import Variable, DagRun
-from airflow.utils.state import DagRunState
-from airflow.utils.session import provide_session
+from airflow.models import Variable
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 from slack_sdk import WebClient
 from datetime import datetime, timedelta 
 
@@ -20,34 +19,67 @@ try:
 except Exception as e:
     print(f"슬랙키를 가져오는데 실패했습니다. : {e}")
 
-@provide_session
-def dag_success_bool(dag_id: str, execution_date, session=None) -> bool:
-    dagrun = (
-        session.query(DagRun)
-        .filter(
-            DagRun.dag_id == dag_id,
-            DagRun.execution_date == execution_date
-        )
-        .first()
-    )
-    return dagrun is not None and dagrun.state == DagRunState.SUCCESS
+try:
+    SLACK_WEBHOOK = Variable.get("SLACK_WEBHOOK_URL")
+    print(f"Slack Webhook URL을 가져오는데 성공했습니다. {SLACK_WEBHOOK[0:15]}...")
+except Exception as e:
+    print(f"Slack Webhook URL을 가져오는데 실패했습니다. {e}")
 
 
-with DAG(dag_id='slack',
+
+with DAG(dag_id='META_DAG',
         default_args=default_args,
         description='슬랙과 연관된 DAG입니다.',
         start_date=datetime(2020,2,2),
-        schedule='* 8 * * *',
+        schedule='* 10 * * *',
         catchup=False,
-        tags=['']
+        tags=['slack']
 ):
     @task
-    def msg():
-        client = WebClient(token=SLACK_API)
+    def get_dag_count():
+        pg_hook = PostgresHook(postgres_conn_id='pg_conn')
+        get_dag_count_sql = """
+            select count(*) as DAG_count
+            from dag
+            where 
+                is_paused = false
+                and dag_id != 'META_DAG'
+                and dag_id != 'Test_DAG'
+                and dag_id != 'slack'
+        """
 
-        client.chat_postMessage(channel="pipeline-status", text='hello slack!')
-        return ''
-    
+        dag_count = pg_hook.get_first(get_dag_count_sql)
+        dag_count = dag_count[0] # 튜플로 반환되기에 맨 처음요소로 인덱싱합니다.
+        print(f"현재 실행중인 DAG의 총 갯수는 {dag_count}개 입니다.")
+        return dag_count
+
     @task
-    def check_success():
-        dag_success_bool('chosun', )
+    def show_dags_state(dag_count):
+        pg_hook = PostgresHook(postgres_conn_id='pg_conn')
+        client = WebClient(token=SLACK_API)
+        get_dag_sate_sql = f"""
+            SELECT DISTINCT ON (dag_id)
+                dag_id,
+                state
+            FROM dag_run
+            WHERE 
+                dag_id != 'META_DAG'
+                and dag_id != 'slack'
+                and dag_id != 'Test_DAG'
+                and dag_id != 'db_dag'
+                and dag_id != 's3_file_upload_dag'
+            ORDER BY dag_id asc, end_date DESC;
+        """
+
+        records = pg_hook.get_records(get_dag_sate_sql)
+        summary_lines = [
+            f"{dag_id}: ✅" if state.lower() == "success" else f"{dag_id}: ❌"
+            for dag_id, state in records
+        ]
+        text = "*오늘 DAG 실행 요약*\n" + "\n".join(summary_lines)
+        client.chat_postMessage(channel="pipeline-status", text=text)
+        return ''
+
+
+    get_dag_count_task = get_dag_count()
+    show_dags_state_task = show_dags_state(get_dag_count_task)
