@@ -24,8 +24,8 @@ dag_owner = 'Ian Kim'
 
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
-        'retries': 2,
-        'retry_delay': timedelta(seconds=10)
+        'retries': 3,
+        'retry_delay': timedelta(minutes=5)
         }
 
 DRIVER_PATH = Variable.get("DRIVER_PATH")

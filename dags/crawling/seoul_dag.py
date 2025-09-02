@@ -23,8 +23,8 @@ dag_owner = 'Ian_Kim'
 
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
-        # 'retries': 2,
-        # 'retry_delay': timedelta(minutes=5)
+        'retries': 3,
+        'retry_delay': timedelta(minutes=5)
         }
 
 Variable.set("SEOUL_ECO", "2")

@@ -28,9 +28,9 @@ yesterday_str = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")  # 어
 dag_owner = 'Ian_Kim'
 
 default_args = {'owner': dag_owner,
-        #'depends_on_past': False,
-        #'retries': 2,
-        #'retry_delay': timedelta(minutes=5)
+        'depends_on_past': False,
+        'retries': 3,
+        'retry_delay': timedelta(minutes=5)
         }
 
 with DAG(dag_id='korea_eco',

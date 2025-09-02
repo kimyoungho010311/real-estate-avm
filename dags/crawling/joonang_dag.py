@@ -28,7 +28,7 @@ dag_owner = 'Ian_Kim'
 
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
-        'retries': 2,
+        'retries': 3,
         'retry_delay': timedelta(minutes=5)
         }
 
