@@ -57,7 +57,25 @@ with DAG(dag_id='db_dag',
         """
         pg_hook.run(create_apt_table_sql)
 
+    @task
+    def create_deep_search_table():
+        pg_hook = PostgresHook(postgres_conn_id='pg_conn')
+
+        create_deep_search_table_sql = """
+        CREATE TABLE IF NOT EXISTS deep_search(
+        id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+        title TEXT,
+        publisher TEXT,
+        published_at TIMESTAMP,
+        url TEXT,
+        summary TEXT
+        )
+        """
+        pg_hook.run(create_deep_search_table_sql)
+
+
     news_table_task = create_news_table()
     apt_table_task = create_apt_table()
+    deep_search_task = create_deep_search_table()
 
-    [news_table_task, apt_table_task]
+    [news_table_task, apt_table_task, deep_search_task]
