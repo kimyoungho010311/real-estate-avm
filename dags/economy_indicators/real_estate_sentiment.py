@@ -3,16 +3,16 @@ from airflow.decorators import task
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.exceptions import AirflowFailException
+import requests
 from datetime import datetime, timedelta, date
-import os, requests, json
-
+import os, json
 
 dag_owner = 'Ian Kim'
 
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
-        'retries': 2,
-        'retry_delay': timedelta(minutes=5)
+        #'retries': 2,
+        #'retry_delay': timedelta(minutes=5)
         }
 
 try:
@@ -23,12 +23,12 @@ except Exception as e:
 
 download_dir = "tmp/land_price_change_by_region"
 
-# (월) 지역별 아파트 매매 현황 통계 코드
-STATBL_ID = 'A_2024_00903'
+# 부동산 시장 소비 심리지수 테이블 코드
+STATBL_ID = 'T235013129634707'
 # 월별 데이터를 수집
 DTACYCLE_CD = 'MM'
 # 강남구 지역번호
-CLS_ID = '510030'
+CLS_ID = '50004'
 
 today = date.today()
 
@@ -44,26 +44,16 @@ url = (
     f'&START_WRTTIME={today_str}&END_WRTTIME={today_str}'
 )
 
-with DAG(dag_id='land_price_change_by_region',
+with DAG(dag_id='real_estate_sentiment',
         default_args=default_args,
-        description='(월) 지역별 지가변동률을 수집하는 DAG입니다.',
+        description='부동산 시장 소비 심리지수 데이터를 수집하는 DA 입니다.',
         start_date=datetime(2020,2,2),
         schedule='@weekly',
         catchup=False,
         tags=['Economy indicators']
 ):
     @task
-    def fetch_land_price_change_by_region():
-        """ 한국부동산원 API에서 (월) 지역별 지가변동률 데이터를 조회한 후 로컬에 JSON 파일로 저장합니다.
-
-        데이터의 유효성을 확인한 후 디버깅을 위해 주요 값들을 콘솔에 출력합니다.
-
-        Returns:
-            str: 저장된 JSON 파일의 로컬 경로. (예: "tmp/land_price_change_by_region/2025-09.json")
-
-        Raises:
-            AirflowFailException: API 응답이 실패하거나 데이터 구조가 비정상적인 경우 DAG 실패 처리.
-        """
+    def fetch_real_estate_sentiment():
         os.makedirs(download_dir, exist_ok=True)
         # 파일명 : YYYY-MM.json
         output_path = os.path.join(download_dir, f"{today_month}.json")
@@ -81,10 +71,11 @@ with DAG(dag_id='land_price_change_by_region',
                     print(f"    DTACYCLE_CD : {item.get('DTACYCLE_CD')}")
                     print(f"    WRTTIME_IDTFR_ID      : {item.get('WRTTIME_IDTFR_ID')}")
                     print(f"    GRP_ID      : {item.get('GRP_ID')}")
+                    print(f"    GRP_NM      : {item.get('GRP_NM')}")
                     print(f"    CLS_ID      : {item.get('CLS_ID')}")
-                    print(f"    CLS_NM      : {item.get('CLS_NM')}")
-                    print(f"    ITM_ID       : {item.get('ITM_ID')}")
-                    print(f"    ITM_NM        : {item.get('ITM_NM')}")
+                    print(f"    CLS_NM       : {item.get('CLS_NM')}")
+                    print(f"    ITM_ID        : {item.get('ITM_ID')}")
+                    print(f"    ITM_NM  : {item.get('ITM_NM')}")
                     print(f"    DTA_VAL  : {item.get('DTA_VAL')}")
                     print(f"    UI_NM  : {item.get('UI_NM')}")
                     print(f"    GRP_FULLNM  : {item.get('GRP_FULLNM')}")
@@ -112,16 +103,9 @@ with DAG(dag_id='land_price_change_by_region',
     
     @task
     def save_df_to_s3(output_path: str):
-        """ 로컬에 저장된 지가변동률 JSON 데이터를 지정된 S3 버킷에 업로드합니다.
-        Args:
-            output_path (str): 업로드할 로컬 파일 경로.
-
-        Returns:
-            str: 업로드된 S3 경로 문자열. (예: "s3://real-estate-avm/raw/...")
-        """
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
-        key = f"raw/economic-indicators/land-price-change-by-region/dt={today_month}/{today_month}.json"
+        key = f"raw/economic-indicators/real-estate-consumer-sentiment/dt={today_month}/{today_month}.json"
         s3_hook.load_file(
             filename = output_path,
             bucket_name = bucket_name,
@@ -131,7 +115,7 @@ with DAG(dag_id='land_price_change_by_region',
 
         return f"s3://{key}에 저장되었습니다."
     
-    fetch_land_price_change_by_region_task = fetch_land_price_change_by_region()
-    save_dt_to_s3_task = save_df_to_s3(fetch_land_price_change_by_region_task)
+    fetch_real_estate_sentiment_task = fetch_real_estate_sentiment()
+    save_df_to_s3_task = save_df_to_s3(fetch_real_estate_sentiment_task)
 
-    fetch_land_price_change_by_region_task >> save_dt_to_s3_task
+    fetch_real_estate_sentiment_task >> save_df_to_s3_task
