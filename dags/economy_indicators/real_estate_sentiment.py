@@ -21,7 +21,7 @@ try:
 except Exception as e:
     print("한국 부동산 API키를 가져오는데 실패했습니다. : {e}")
 
-download_dir = "tmp/land_price_change_by_region"
+download_dir = "tmp/real_estate_sentiment"
 
 # 부동산 시장 소비 심리지수 테이블 코드
 STATBL_ID = 'T235013129634707'
