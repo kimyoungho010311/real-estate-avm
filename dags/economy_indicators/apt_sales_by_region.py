@@ -11,8 +11,8 @@ dag_owner = 'Ian Kim'
 
 default_args = {'owner': dag_owner,
         'depends_on_past': False,
-        #'retries': 2,
-        #'retry_delay': timedelta(minutes=5)
+        'retries': 2,
+        'retry_delay': timedelta(minutes=5)
         }
 
 try:
@@ -53,6 +53,16 @@ with DAG(dag_id='apt_sales_by_region',
 ):
     @task
     def fetch_apt_sales_by_region():
+        """ (월) 지역별 아파트 매매 데이터를 Open API로부터 수집하고 로컬(JSON 파일)로 저장합니다.
+
+        반환 데이터의 유효성을 검사하며, 정상적인 데이터 형식일 경우 디버깅용 포맷으로 출력합니다.
+
+        Returns:
+            str: 저장된 로컬 파일 경로 (예: "tmp/apt_sales_by_region/2025-09.json")
+
+        Raises:
+            AirflowFailException: API 응답 코드가 200이 아니거나 정상적인 데이터가 존재하지 않을 경우 DAG 실패 처리.
+        """
         os.makedirs(download_dir, exist_ok=True)
         # 파일명 : YYYY-MM.json
         output_path = os.path.join(download_dir, f"{today_month}.json")
@@ -96,6 +106,14 @@ with DAG(dag_id='apt_sales_by_region',
     
     @task
     def save_df_to_s3(output_path: str):
+        """ 로컬에 저장된 JSON 데이터를 S3 버킷에 업로드합니다.
+        
+        Args:
+            output_path (str): 업로드 대상 로컬 파일 경로.
+
+        Returns:
+            str: 업로드된 S3 경로 문자열. (예: "s3://real-estate-avm/...")
+        """
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
         key = f"raw/economic-indicators/monthly-interest-rate/dt={today_month}/{today_month}.json"
