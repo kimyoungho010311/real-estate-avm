@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.decorators import task
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 from datetime import datetime, timedelta, date
 import os, requests
@@ -132,8 +133,14 @@ with DAG(dag_id='real_estate_ingestion_dag',
         )
 
         return f"s3://{bucket_name}/tmp/{s3_key}에 저장되었습니다."
+    
+    trigger_apt_processing_dag = TriggerDagRunOperator(
+        task_id = 'trigger_apt_processing_dag',
+        trigger_dag_id='apt_processing_dag',
+        wait_for_completion=False
+    )
 
     apt_data_task = apt_data()
     save_df_to_s3_task = save_df_to_s3(apt_data_task)
 
-    apt_data_task >> save_df_to_s3_task
+    apt_data_task >> save_df_to_s3_task >> trigger_apt_processing_dag
