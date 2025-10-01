@@ -40,7 +40,7 @@ with DAG(dag_id='real_estate_ingestion_dag',
         default_args=default_args,
         description='아파트 매매 데이터를 수집하는 DAG입니다.',
         start_date=datetime(2025,8,11),
-        schedule='* 8 * * 1-5',
+        schedule='0 8 * * 1-5',
         catchup=False,
         tags=['APT']
 ):
@@ -128,7 +128,7 @@ with DAG(dag_id='real_estate_ingestion_dag',
         s3_hook.load_file(
             filename=output_path,
             bucket_name=bucket_name,
-            key=f"raw/real-estate/df={date.today()}/data.csv",
+            key=f"raw/real-estate/df={today}/data.csv",
             replace=True
         )
 
