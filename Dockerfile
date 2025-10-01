@@ -12,8 +12,8 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/airflow/keys
-COPY gee-service-account.json /opt/airflow/keys/gee-service-account.json
-RUN chown airflow: /opt/airflow/keys/gee-service-account.json
+#COPY gee-service-account.json /opt/airflow/keys/gee-service-account.json
+#RUN chown airflow: /opt/airflow/keys/gee-service-account.json
 
 # 서울 시간대 설정
 ENV TZ=Asia/Seoul

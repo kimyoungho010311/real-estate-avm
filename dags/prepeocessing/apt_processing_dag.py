@@ -32,9 +32,9 @@ columns_to_use = [
 
 with DAG(dag_id='apt_processing_dag',
         default_args=default_args,
-        description='아파트 거래 데이터를 전처리 하는 DAG 입니다.',
+        description='아파트 거래 데이터를 전처리 하는 DAG 입니다.',    
         start_date=datetime(2020, 2 ,2),
-        schedule='* 8 * * 1-5',
+        schedule='0 8 * * 1-5',
         catchup=False,
         tags=['Preprocessing']
 ):
