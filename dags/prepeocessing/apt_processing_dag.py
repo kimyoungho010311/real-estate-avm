@@ -3,6 +3,7 @@ from airflow.decorators import task
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.models import Variable
 from airflow.exceptions import AirflowFailException
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import datetime, timedelta, date
 import pandas as pd
 import os, requests
@@ -168,9 +169,13 @@ with DAG(dag_id='apt_processing_dag',
         print("==========================================================")
         print("==========================================================")
 
+        # 만약 전처리된 데이터의 길이가 0이면 오류를 발생합니다.
+        if len(df) <= 0:
+            msg = f"전처리된 데이터의 길이가 0입니다. {today_month}일자에 거래된 내역이 없을 확률이 큽니다. DAG를 종료합니다."
+            print(msg)
+            raise AirflowFailException(msg)
+        
         # 전처리 완료된 데이터를 CSV로 저장
-
-
         # 1. 저장할 디렉토리와 전체 파일 경로를 정의
         output_dir = '/tmp/apt_sale_processed'
         os.makedirs(output_dir, exist_ok=True)
@@ -204,9 +209,16 @@ with DAG(dag_id='apt_processing_dag',
 
         return f"s3://{key}에 저장되었습니다."
 
+    # 아파트 전처리 DAG가 끝나면 위성이미지 가져오기를 실행합니다.
+    trigger_fetch_satellite_image = TriggerDagRunOperator(
+        task_id = 'trigger_fetch_satellite_image',
+        trigger_dag_id='fetch_satellite_image',
+        wait_for_completion=False
+    )
+
     # Task 실행
     downloaded_file_path = fetch_apt_data_from_s3()
     read_csv_task = read_csv_and_preprocessing(downloaded_file_path)
     save_df_to_s3_task = save_df_to_s3(read_csv_task)
 
-    downloaded_file_path >> read_csv_task >> save_df_to_s3_task
+    downloaded_file_path >> read_csv_task >> save_df_to_s3_task >> trigger_fetch_satellite_image

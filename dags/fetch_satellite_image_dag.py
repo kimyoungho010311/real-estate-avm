@@ -1,6 +1,8 @@
 from airflow import DAG
 from airflow.decorators import task
 from airflow.exceptions import AirflowFailException
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from datetime import datetime, timedelta, date
@@ -11,7 +13,6 @@ from PIL import Image  # 이미지 파일 열고 저장
 from io import BytesIO  # 이미지 바이트 데이터를 PIL로 읽기 위한 버퍼
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io, os
-import shutil
 
 dag_owner = 'Ian Kim'
 
@@ -23,7 +24,7 @@ default_args = {'owner': dag_owner,
 
 today = date.today()
 today_str = today.strftime("%Y-%m-%d")
-today_str = '2025-09-24'
+#today_str = '2025-09-24'
 # 전처리된 데이터를 임시로 저장하는 디렉토리 입니다.
 download_csv_path = "/tmp/fetch_processed_apt_txn_data"
 download_img_dir = "/tmp/satellite_img"
@@ -38,11 +39,22 @@ with DAG(dag_id='fetch_satellite_image',
         default_args=default_args,
         description='전처리된 아파트 매매 데이터를 기준으로 위성지도를 가져오는 DAG입니다.',
         start_date=datetime(2023,2,2),
-        #schedule_interval='',
+        schedule='0 8 * * 1-5',
         catchup=False,
         tags=['Satellite']
         
 ):
+    
+
+    wait_for_preprocessing = ExternalTaskSensor(
+        task_id='wait_for_preprocessing',
+        external_dag_id='apt_processing_dag',  # 선행 DAG ID
+        external_task_id=None,  # DAG 전체가 끝날 때까지 기다림
+        poke_interval=60,       # 60초마다 상태 확인
+        timeout=5*60,        # 최대 5분 대기
+        mode='poke'
+    )
+
     @task
     def fetch_processed_apt_txn_data(prev_ds=None):
         print(f"검색되는 날짜는 {today_str}입니다.")
@@ -209,39 +221,20 @@ with DAG(dag_id='fetch_satellite_image',
         print(f"총 {uploaded_count}개의 이미지 업로드 완료.")
         return f"s3://{bucket_name}/{s3_prefix}"
 
-    @task
-    def cleanup_local_directory(download_csv_path: str, download_img_dir: str):
-        """임시로 사용한 이미지 디렉토리와 CSV 디렉토리를 삭제합니다."""
-        
-        # 다운로드된 CSV 파일 디렉토리 삭제
-        try:
-            if os.path.exists(download_csv_path):
-                shutil.rmtree(download_csv_path)
-                print(f"임시 CSV 디렉토리 '{download_csv_path}' 삭제 완료.")
-            else:
-                print(f"임시 CSV 디렉토리 '{download_csv_path}'가 존재하지 않습니다.")
-        except Exception as e:
-            print(f"임시 CSV 디렉토리 삭제 실패: {e}")
-
-        # 다운로드된 이미지 파일 디렉토리 삭제
-        try:
-            if os.path.exists(download_img_dir):
-                # shutil.rmtree를 사용하여 디렉토리와 모든 내용을 재귀적으로 삭제
-                shutil.rmtree(download_img_dir)
-                print(f"임시 이미지 디렉토리 '{download_img_dir}' 삭제 완료.")
-            else:
-                print(f"임시 이미지 디렉토리 '{download_img_dir}'가 존재하지 않습니다.")
-        except Exception as e:
-            print(f"임시 이미지 디렉토리 삭제 실패: {e}")
 
 
+    # 위성지도 이미지 가져오기를 성공하면 위성지도 이미지 전처리 DAG를 실행합니다.
+    trigger_processing_satellite_image = TriggerDagRunOperator(
+        task_id = 'trigger_processing_satellite_image',
+        trigger_dag_id = 'satellite_image_processing_dag',
+        wait_for_completion=False
+    )
 
 
     fetch_processed_apt_txn_data_task = fetch_processed_apt_txn_data()
     fetch_satellite_img_task = fetch_satellite_img(fetch_processed_apt_txn_data_task)
     upload_image_dir_to_s3_task = upload_image_dir_to_s3(fetch_satellite_img_task)
 
-    cleanup_task = cleanup_local_directory(download_csv_path, download_img_dir) # 새로 추가된 태스크
 
     # --- 태스크 의존성 설정 ---
-    fetch_processed_apt_txn_data_task >> fetch_satellite_img_task >> upload_image_dir_to_s3_task >> cleanup_task
+    wait_for_preprocessing >> fetch_processed_apt_txn_data_task >> fetch_satellite_img_task >> upload_image_dir_to_s3_task >> trigger_processing_satellite_image
