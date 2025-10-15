@@ -31,4 +31,5 @@ RUN pip uninstall -y ee && \
         earthengine-api \
         Pillow \
         torch \
-        torchvision
+        torchvision \
+        tensorflow

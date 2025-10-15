@@ -22,9 +22,9 @@ default_args = {'owner': dag_owner,
         #'retry_delay': timedelta(minutes=5)
         }
 
-today = date.today()
-today_str = today.strftime("%Y-%m-%d")
-#today_str = '2025-09-24'
+yesterday = date.today() - timedelta(days=1)
+YESTERDAY_YMD = yesterday.strftime("%Y-%m-%d")
+#YESTERDAY_YMD = '2025-09-24'
 # 전처리된 데이터를 임시로 저장하는 디렉토리 입니다.
 download_csv_path = "/tmp/fetch_processed_apt_txn_data"
 download_img_dir = "/tmp/satellite_img"
@@ -57,10 +57,10 @@ with DAG(dag_id='fetch_satellite_image',
 
     @task
     def fetch_processed_apt_txn_data(prev_ds=None):
-        print(f"검색되는 날짜는 {today_str}입니다.")
+        print(f"검색되는 날짜는 {YESTERDAY_YMD}입니다.")
         s3_hook = S3Hook(aws_conn_id='s3_conn')
         bucket_name = 'real-estate-avm'
-        object_key = f'processed/preprocessed_apt_txn/dt={today_str}/{today_str}.csv'
+        object_key = f'processed/preprocessed_apt_txn/dt={YESTERDAY_YMD}/{YESTERDAY_YMD}.csv'
         try:
             obj_str = s3_hook.read_key(key=object_key, bucket_name=bucket_name)
             df = pd.read_csv(io.StringIO(obj_str))
@@ -184,7 +184,7 @@ with DAG(dag_id='fetch_satellite_image',
         
         s3_hook = S3Hook(aws_conn_id='s3_conn')
         bucket_name = 'real-estate-avm'
-        s3_prefix = f'raw/satellite-imagery/dt={today_str}/'
+        s3_prefix = f'raw/satellite-imagery/dt={YESTERDAY_YMD}/'
         
         # 디렉토리 내의 모든 파일 목록을 가져옵니다.
         files_to_upload = [f for f in os.listdir(download_img_dir) if os.path.isfile(os.path.join(download_img_dir, f))]
