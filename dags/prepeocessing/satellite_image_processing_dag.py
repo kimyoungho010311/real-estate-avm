@@ -3,6 +3,8 @@ from airflow.decorators import task
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.models import Variable
 from airflow.exceptions import AirflowFailException
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
 from datetime import datetime, timedelta, date
 import pandas as pd
 import os, requests, random
@@ -21,11 +23,11 @@ default_args = {'owner': dag_owner,
         #'retry_delay': timedelta(minutes=5)
         }
 
-today = date.today()
-today_str = today.strftime("%Y-%m-%d")
+yesterday = date.today() - timedelta(days=1)
+YESTERDAY_YMD = yesterday.strftime("%Y-%m-%d")
 
-# 아래 today_str은 개발용 날짜임
-#today_str = '2025-09-24'
+# 아래 YESTERDAY_YMD은 개발용 날짜임
+#YESTERDAY_YMD = '2025-09-24'
 
 local_download_path = 'tmp/satellite_image'
 preprocessed_image_path = 'tmp/preprocessed_satellite_image'
@@ -43,11 +45,11 @@ with DAG(dag_id='satellite_image_processing_dag',
 
     @task
     def fetch_satellite_image_from_s3():
-        print(f"{today_str}날짜의 위성 이미지를 전처리하기위해 다운로드합니다.")
+        print(f"{YESTERDAY_YMD}날짜의 위성 이미지를 전처리하기위해 다운로드합니다.")
 
         s3_hook = S3Hook(aws_conn_id='s3_conn')
         bucket_name = 'real-estate-avm'
-        prefix = f'raw/satellite-imagery/dt={today_str}/'
+        prefix = f'raw/satellite-imagery/dt={YESTERDAY_YMD}/'
 
         keys = s3_hook.list_keys(bucket_name=bucket_name, prefix=prefix)
         
@@ -126,7 +128,7 @@ with DAG(dag_id='satellite_image_processing_dag',
             idx += 1
             s3_hook = S3Hook(aws_conn_id = 's3_conn')
             bucket_name = 'real-estate-avm'
-            key = f'processed/normalized-images/dt={today_str}/{today_str}_{idx}'
+            key = f'processed/normalized-images/dt={YESTERDAY_YMD}/{YESTERDAY_YMD}_{idx}'
             s3_hook.load_file(
                 filename = saved_file,
                 bucket_name = bucket_name,
@@ -161,9 +163,18 @@ with DAG(dag_id='satellite_image_processing_dag',
         except Exception as e:
             print(f"임시 이미지 디렉토리 삭제 실패: {e}")
     
+    trigger_vectorization_image = TriggerDagRunOperator(
+        task_id = 'trigger_vectorization_image',
+        trigger_dag_id = 'satellite_image_vectorization',
+        wait_for_completion=False
+    )
+
+
+
+
     fetch_satellite_image_from_s3_task = fetch_satellite_image_from_s3()
     preprocessing_satellite_images_task = preprocessing_satellite_images(fetch_satellite_image_from_s3_task)
     save_dt_to_s3_task = save_dt_to_s3(preprocessing_satellite_images_task)
     cleanup_local_directory_task = cleanup_local_directory(local_download_path, preprocessed_image_path)
 
-    fetch_satellite_image_from_s3_task >> preprocessing_satellite_images_task >> save_dt_to_s3_task >> cleanup_local_directory_task
+    fetch_satellite_image_from_s3_task >> preprocessing_satellite_images_task >> save_dt_to_s3_task >> cleanup_local_directory_task >> trigger_vectorization_image
