@@ -79,8 +79,8 @@ with DAG(dag_id='real_estate_ingestion_dag',
             "srhFromDt": yesterday_str,
             "srhToDt": yesterday_str,
             "srhNewRonSecd": "",
-            "srhSidoCd": "11000",
-            "srhSggCd": "11680",
+            "srhSidoCd": sido,
+            "srhSggCd": "", # 서울특별시 모든 '구'를 목표로 데이터를 수집한다.
             "srhEmdCd": "",
             "srhRoadNm": "",
             "srhLoadCd": "",
@@ -103,7 +103,7 @@ with DAG(dag_id='real_estate_ingestion_dag',
             response = session.post(url_down, data=payload, headers=headers)
             response.raise_for_status()
             output_path.write_bytes(response.content)
-
+            print(f"{yesterday_str}날짜의 서울특별시 아파트 매매 데이터를 수집합니다.")
         return str(output_path)
 
     @task

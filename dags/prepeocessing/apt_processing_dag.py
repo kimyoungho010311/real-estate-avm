@@ -26,6 +26,8 @@ except Exception as e:
 today = date.today()
 today_month = today.strftime("%Y-%m-%d")
 
+yesterday = date.today() - timedelta(days=1)
+YESTERDAY_YMD = yesterday.strftime("%Y-%m-%d")
 columns_to_use = [
     '시군구', '단지명', '전용면적(㎡)', '계약년월', '계약일',
     '거래금액(만원)', '동', '층', '건축년도', '도로명'
@@ -199,7 +201,7 @@ with DAG(dag_id='apt_processing_dag',
         """
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
-        key = f"processed/preprocessed_apt_txn/dt={today_month}/{today_month}.csv"
+        key = f"processed/preprocessed_apt_txn/dt={YESTERDAY_YMD}/{YESTERDAY_YMD}.csv"
         s3_hook.load_file(
             filename = local_download_path,
             bucket_name = bucket_name,

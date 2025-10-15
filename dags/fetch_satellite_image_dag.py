@@ -46,14 +46,14 @@ with DAG(dag_id='fetch_satellite_image',
 ):
     
 
-    wait_for_preprocessing = ExternalTaskSensor(
-        task_id='wait_for_preprocessing',
-        external_dag_id='apt_processing_dag',  # 선행 DAG ID
-        external_task_id=None,  # DAG 전체가 끝날 때까지 기다림
-        poke_interval=60,       # 60초마다 상태 확인
-        timeout=5*60,        # 최대 5분 대기
-        mode='poke'
-    )
+    # wait_for_preprocessing = ExternalTaskSensor(
+    #     task_id='wait_for_preprocessing',
+    #     external_dag_id='apt_processing_dag',  # 선행 DAG ID
+    #     external_task_id=None,  # DAG 전체가 끝날 때까지 기다림
+    #     poke_interval=60,       # 60초마다 상태 확인
+    #     timeout=5*60,        # 최대 5분 대기
+    #     mode='poke'
+    # )
 
     @task
     def fetch_processed_apt_txn_data(prev_ds=None):
@@ -237,4 +237,4 @@ with DAG(dag_id='fetch_satellite_image',
 
 
     # --- 태스크 의존성 설정 ---
-    wait_for_preprocessing >> fetch_processed_apt_txn_data_task >> fetch_satellite_img_task >> upload_image_dir_to_s3_task >> trigger_processing_satellite_image
+    fetch_processed_apt_txn_data_task >> fetch_satellite_img_task >> upload_image_dir_to_s3_task >> trigger_processing_satellite_image
