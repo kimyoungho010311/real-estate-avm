@@ -4,7 +4,8 @@ from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.exceptions import AirflowFailException
 from datetime import datetime, timedelta, date
-import os, requests, json
+from dateutil.relativedelta import relativedelta
+import os, requests, json, shutil
 
 
 dag_owner = 'Ian Kim'
@@ -31,11 +32,11 @@ DTACYCLE_CD = 'MM'
 CLS_ID = '510030'
 
 today = date.today()
-
 today_str = today.strftime("%Y%m")
-
-# S3에 저장될때 사용되는 폴더 명입니다. 예시 : dt={today_month}
-today_month = today.strftime("%Y-%m")
+one_month_ago = today - relativedelta(months=1)
+# S3에 저장될때 사용되는 폴더 명입니다. 예시 : dt={one_month_ago_month}
+one_month_ago_str = one_month_ago.strftime("%Y%m")
+one_month_ago_month = one_month_ago.strftime("%Y-%m")
 
 url = (
     f'https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do'
@@ -64,9 +65,10 @@ with DAG(dag_id='land_price_change_by_region',
         Raises:
             AirflowFailException: API 응답이 실패하거나 데이터 구조가 비정상적인 경우 DAG 실패 처리.
         """
+        print(f"{one_month_ago_month}날짜의 지역별 지가 지수 데이터를 수집합니다.")
         os.makedirs(download_dir, exist_ok=True)
         # 파일명 : YYYY-MM.json
-        output_path = os.path.join(download_dir, f"{today_month}.json")
+        output_path = os.path.join(download_dir, f"{one_month_ago_month}.json")
 
         response = requests.get(url)
 
@@ -99,7 +101,8 @@ with DAG(dag_id='land_price_change_by_region',
                 print(f"Code    : {code}")
                 print(f"Message    : {message}")
                 print("=========================")
-                print("데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리합니다.")
+                print("데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리하고 다운로드 경로를 삭제합니다.")
+                shutil.rmtree(download_dir)
                 raise AirflowFailException
         else:
             # 만약 응답코드가 200이 아니라면 실패로 DAG를 종료합니다.
@@ -121,14 +124,15 @@ with DAG(dag_id='land_price_change_by_region',
         """
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
-        key = f"raw/economic-indicators/land-price-change-by-region/dt={today_month}/{today_month}.json"
+        key = f"raw/economic-indicators/land-price-change-by-region/dt={one_month_ago_month}/{one_month_ago_month}.json"
         s3_hook.load_file(
             filename = output_path,
             bucket_name = bucket_name,
             key = key,
             replace = True
         )
-
+        print(f"{download_dir}경로를 삭제합니다.")
+        shutil.rmtree(download_dir)
         return f"s3://{key}에 저장되었습니다."
     
     fetch_land_price_change_by_region_task = fetch_land_price_change_by_region()
