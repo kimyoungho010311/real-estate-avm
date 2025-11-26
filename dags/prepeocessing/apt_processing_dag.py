@@ -218,9 +218,14 @@ with DAG(dag_id='apt_processing_dag',
         wait_for_completion=False
     )
 
+    trigger_apt_vectorization = TriggerDagRunOperator(
+        task_id = 'trigger_apt_vectorization',
+        trigger_dag_id='apt_vectorization',
+        wait_for_completion=False
+    )
     # Task 실행
     downloaded_file_path = fetch_apt_data_from_s3()
     read_csv_task = read_csv_and_preprocessing(downloaded_file_path)
     save_df_to_s3_task = save_df_to_s3(read_csv_task)
 
-    downloaded_file_path >> read_csv_task >> save_df_to_s3_task >> trigger_fetch_satellite_image
+    downloaded_file_path >> read_csv_task >> save_df_to_s3_task >> [trigger_fetch_satellite_image, trigger_apt_vectorization]

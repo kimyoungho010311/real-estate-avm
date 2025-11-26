@@ -36,8 +36,8 @@ today_str = today.strftime("%Y%m")
 one_month_ago = today - relativedelta(months=1)
 
 one_month_ago_str = one_month_ago.strftime("%Y%m")
-one_month_ago_month = one_month_ago.strftime("%Y-%m")
-
+#one_month_ago_month = one_month_ago.strftime("%Y-%m")
+one_month_ago_month = "2025-08"
 url = (
     f'https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do'
     f'?KEY={API_KEY}&Type=json&STATBL_ID={STATBL_ID}'
