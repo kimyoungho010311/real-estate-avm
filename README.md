@@ -1,10 +1,10 @@
-# Airflow 기반 아파트 가격 예측 데이터 파이프라인
+# 🌬️Airflow 기반 아파트 가격 예측 데이터 파이프라인
 **(Automated Apartment Price Prediction Pipeline with Airflow)**
 
 본 프로젝트는 [멀티 모달 데이터를 이용한 TCN 기반 시나리오별 아파트 가격 예측 연구]논문의 모델을 지속적으로 운영하기 위해 구축한 **End-to-End** 데이터 파이프라인입니다.  
 매일/매월 갱신되는 부동산 및 경제 데이터를 수집하고, 전처리 및 모델 추론 과정을 Apache Airflow로 자동화하였습니다.
 
-## 프로젝트 개요
+## 1. 프로젝트 개요
 |항목|내용|
 |---|---|
 |진행기간| 2025.07 ~ 2025.10 (약 3개월)|
@@ -12,7 +12,7 @@
 |주요 역할| Airflow DAG설계 및 구현, 데이터 수집/전처리 자동화, Docker 환경 구축|
 |핵심 기술| `Apache Airflow`, `Docker`, `AWS S3`|
 
-## ❓ 도입 배경
+## 2. ❓ 도입 배경
 선행 연구를 통해 구축한 아파트 가격 예측 모델은 최신 데이터의 반영이 필수적입니다. 그러나 수동 운영 방식은 다음과 같은 한계가 있었습니다.
 
 1. **데이터 최신성 저하**: 매일 갱신되는 실거래가와 월별 경제지표를 즉시 반영하기 어려움.
@@ -20,47 +20,62 @@
 3. **운영 안정성 부족**: 수동 실행 시 휴먼 에러 발생 가능성 및 에러 추적의 어려움.
 👉 따라서, 데이터 수집부터 모델 추론까지 전 과정을 자동화하는 Airflow 파이프라인을 구축했습니다.
 
-## 🏗️ 시스템 아키텍처
+## 3. 🏗️ 시스템 아키텍처
 데이터 흐름과 Airflow DAG의 구조는 다음과 같습니다.
-```mermaid
----
-config:
-  layout: elk
-  look: neo
-  theme: redux
----
-flowchart LR
- subgraph subGraph0["External APIs"]
-        API1["국토교통부 API(실거래가)"]
-        GEE["Google Earth Engine(위성 이미지)"]
-        API2["한국은행 ECOS API(경제지표)"]
-        API3["한국부동산원 R-ONE(경제지표)"]
-  end
- subgraph subGraph1["Airflow DAGs"]
-        DAG1("Daily Collection DAG")
-        DAG2("Monthly Collection DAG")
-        DAG3("Preprocessing DAG")
-        DAG4("Inference DAG")
-  end
- subgraph subGraph2["AWS S3"]
-        Raw["Raw Data (CSV)"]
-        Processed["Processed Data"]
-        Artifacts["Articats Data"]
-  end
-    API1 --> DAG1
-    GEE --> DAG1
-    API3 --> DAG2
-    API2 --> DAG2
-    DAG1 L_DAG1_Raw_0@--> Raw
-    DAG2 --> Raw
-    Raw --> DAG3
-    DAG3 --> Processed
-    Processed --> DAG4
-    DAG4 --> Artifacts
+<img width="1860" height="763" alt="Airflow_아키텍처" src="https://github.com/user-attachments/assets/ce1486e6-02cb-43cb-af15-6e885d662987" />
 
-    style subGraph0 stroke:#000000
-    style subGraph1 stroke:#000000
-    style subGraph2 stroke:#000000
+시스템 아키텍쳐의 설명은 다음과 같습니다.
+1. 예측에 사용되는 원천 데이터들을 `RAW` 버킷에 저장한다.
+2. `RAW` 버킷에 있는 데이터는 전처리를 거친 후 `Processed Data` 버킷에 저장된다.
+3. `Processed Data`에 저장된 데이터를 통해 모델 추론을 하여 `Artifacts Data` 버킷에 저장한다.
 
-    L_DAG1_Raw_0@{ curve: linear }
-```
+큰 틀별 설명은 아래와 같습니다.
+
+### 3.1 External APIs (Data Sources)
+예측 모델에 필요한 정형 및 비정형 데이터를 제공하는 외부 AIP들입니다.
+|API 명| 데이터 유형| 수집 주기| 설명|
+|-----|---------|---------|-----|
+|국토교통부| 정형|Daily|아파트 실거래가(매매), 전용면적, 층수등 핵심 거래 정보를 제공|
+|한국은행| 정형| Monthly| 기준 금리 등 부동산 가격에 영향을 미치는 경제 지표를 수집|
+|한국부동산원| 정형 | Monthly | 부동산 소비심리지수등 부동산 시장의 심리 및 추세 데이터를 수집|
+|Google Earth Engine| 비정형| Daily| 해당 아파트 단지 주위를 촬영한 위성 이미지를 수집|
+
+### 3.2 Airflow DAGs
+프로젝트에 구현된 대표적인 `DAG`에 대한 설명입니다.
+|DAG 명| 설명|
+|-----|-----|
+|Dail Collection DAG| 매매 데이터, 위성 이미지같이 매일 수집되는 데이터를 담당하는 `DAG`입니다.|
+|Monthly Collection DAG| 각종 경제지표등의 월별 데이터 수집을 담당하는 `DAG`입니다.|
+|Preprocessing DAG| 수집된 Raw 데이터의 전처리를 담당하는 `DAG`입니다.|
+|Inference DAG| 전처리된 데이터를 활용해 최종적으로 모델의 추론을 담당하는 `DAG`입니다.|
+
+### 3.3 AWS S3
+데이터 저장을 담당합니다. 데이터 처리 단계별로 버킷을 분리하여 데이터의 안정성을 보장합니다.
+#### 3.3.1 Raw Data
+- 설명: 외부 API로부터 수집된 **Raw 데이터**를 가공 없이 그대로 저장하는 공간입니다.
+- 형식: `CSV`, `JSON`, `JPG`
+- 목적: 데이터 유실 방지 및 문제 발생 시 원본 데이터 재처리를 위함
+#### 3.3.2 Processed Data
+- 설명: 전처리 DAG를 통해 정제되고 정규화된 **모델 추론용 데이터**입니다.
+- 형식: `Parquet`, `Numpy(.npy)`
+- 특징: 읽기 속도 최적화를 위해 Parquet형식으로 저장하거나 Tensor형태로 저장합니다.
+#### 3.3.3 Artifacts Data
+- 설명: Inference DAG의 결과물인 **최종 예측 모델** 및 시각화 결과가 저장됩니다.
+- 형식: `Pickle(.pkl)`,`img`
+- 용도: 시각화 대시보드나 사용자에게 제공되기 위해 사용됩니다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
