@@ -3,9 +3,10 @@ from airflow.decorators import task
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.exceptions import AirflowFailException
-import requests
 from datetime import datetime, timedelta, date
-import os, json
+from dateutil.relativedelta import relativedelta
+import os, requests, json, shutil
+
 
 dag_owner = 'Ian Kim'
 
@@ -26,11 +27,16 @@ download_dir = "/tmp/monthly_interest_rate"
 STAT_CODE = "722Y001"
 ITEM_CODE = "0101000"
 FREQ = "M"
+
 today = date.today()
 today_str = today.strftime("%Y%m")
+one_month_ago = today - relativedelta(months=1)
 
-# S3에 저장될때 사용되는 폴더 명입니다. 예시 : dt={today_month}
-today_month = today.strftime("%Y-%m")
+# S3에 저장될때 사용되는 폴더 명입니다. 예시 : dt={one_month_ago_month}
+one_month_ago_str = one_month_ago.strftime("%Y%m")
+one_month_ago_month = one_month_ago.strftime("%Y-%m")
+
+
 url = f"https://ecos.bok.or.kr/api/StatisticSearch/{API_KEY}/json/kr/1/10000/{STAT_CODE}/{FREQ}/{today_str}/{today_str}/{ITEM_CODE}"
 #test_url = f"https://ecos.bok.or.kr/api/StatisticSearch/{API_KEY}/json/kr/1/10000/{STAT_CODE}/{FREQ}/{202409}/{202409}/{ITEM_CODE}"
 
@@ -54,6 +60,7 @@ with DAG(dag_id='monthly_interest_rate_ingest',
         Raises:
             AirflowFailException: API 응답이 200이 아니거나 데이터가 비정상인 경우 DAG 실채 처리
         """
+        print(f"{one_month_ago_month} 날짜의 월별 금리 데이터를 수집합니다.")
         os.makedirs(download_dir, exist_ok = True)
         # 파일명 : 202509_rate.json
         output_path = os.path.join(download_dir, f"{today_str}_rate.json")    
@@ -83,7 +90,8 @@ with DAG(dag_id='monthly_interest_rate_ingest',
                 print(f"Code   : {code}")
                 print(f"Message: {message}")
                 print("==========================")
-                print(f"데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리합니다.")
+                print(f"데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리하고 다운로드 경로를 삭제합니다.")
+                shutil.rmtree(download_dir)
                 raise AirflowFailException
         else:
             # 만약 응답코드가 200이 아니라면 그대로 실패로 DAG를 종료
@@ -111,14 +119,15 @@ with DAG(dag_id='monthly_interest_rate_ingest',
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
         #s3_key = os.path.basename(output_path)
-        key = f"raw/economic-indicators/monthly-interest-rate/dt={today_month}/{today_str}_rate.json"
+        key = f"raw/economic-indicators/monthly-interest-rate/dt={one_month_ago_month}/{today_str}_rate.json"
         s3_hook.load_file(
             filename = output_path,
             bucket_name = bucket_name,
             key = key,
             replace = True
         )
-
+        print(f"{download_dir}경로를 삭제합니다.")
+        shutil.rmtree(download_dir)
         return f"s3://{key}에 저장되었습니다."
     
     fetch_interest_rate_data_task = fetch_interest_rate_data()

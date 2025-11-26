@@ -4,7 +4,8 @@ from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.exceptions import AirflowFailException
 from datetime import datetime, timedelta, date
-import os, requests, json
+from dateutil.relativedelta import relativedelta
+import os, requests, json, shutil
 
 
 dag_owner = 'Ian Kim'
@@ -32,15 +33,16 @@ CLS_ID = '510025'
 
 today = date.today()
 today_str = today.strftime("%Y%m")
+one_month_ago = today - relativedelta(months=1)
 
-# S3에 저장될때 사용되는 폴더 명입니다. 예시 : dt={today_month}
-today_month = today.strftime("%Y-%m")
-
+one_month_ago_str = one_month_ago.strftime("%Y%m")
+#one_month_ago_month = one_month_ago.strftime("%Y-%m")
+one_month_ago_month = "2025-08"
 url = (
     f'https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do'
     f'?KEY={API_KEY}&Type=json&STATBL_ID={STATBL_ID}'
     f'&DTACYCLE_CD={DTACYCLE_CD}&CLS_ID={CLS_ID}'
-    f'&START_WRTTIME={today_str}&END_WRTTIME={today_str}'
+    f'&START_WRTTIME={one_month_ago_str}&END_WRTTIME={one_month_ago_str}'
 )
 
 with DAG(dag_id='apt_sales_by_region',
@@ -63,9 +65,10 @@ with DAG(dag_id='apt_sales_by_region',
         Raises:
             AirflowFailException: API 응답 코드가 200이 아니거나 정상적인 데이터가 존재하지 않을 경우 DAG 실패 처리.
         """
+        print(f"{one_month_ago_month}일자의 지역별 아파트 매매 데이터를 수집합니다...")
         os.makedirs(download_dir, exist_ok=True)
         # 파일명 : YYYY-MM.json
-        output_path = os.path.join(download_dir, f"{today_month}.json")
+        output_path = os.path.join(download_dir, f"{one_month_ago_month}.json")
 
         response = requests.get(url)
 
@@ -93,7 +96,8 @@ with DAG(dag_id='apt_sales_by_region',
                 print(f"Code    : {code}")
                 print(f"Message    : {message}")
                 print("=========================")
-                print("데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리합니다.")
+                print("데이터가 존재하지 않거나 비정상적입니다. DAG를 실패로 처리하고 생성되었던 다운로드 경로를 삭제합니다..")
+                shutil.rmtree(download_dir)
                 raise AirflowFailException
         else:
             # 만약 응답코드가 200이 아니라면 실패로 DAG를 종료합니다.
@@ -116,13 +120,15 @@ with DAG(dag_id='apt_sales_by_region',
         """
         s3_hook = S3Hook(aws_conn_id = 's3_conn')
         bucket_name = 'real-estate-avm'
-        key = f"raw/economic-indicators/monthly-interest-rate/dt={today_month}/{today_month}.json"
+        key = f"raw/economic-indicators/monthly-interest-rate/dt={one_month_ago_month}/{one_month_ago_month}.json"
         s3_hook.load_file(
             filename = output_path,
             bucket_name = bucket_name,
             key = key,
             replace = True
         )
+        print(f"{download_dir}를 삭제합니다.")
+        shutil.rmtree(download_dir)
 
         return f"s3://{key}에 저장되었습니다."
     

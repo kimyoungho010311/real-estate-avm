@@ -25,8 +25,8 @@ default_args = {'owner': dag_owner,
         }
 
 yesterday = date.today() - timedelta(days=1)
-#YESTERDAY_YMD = yesterday.strftime("%Y-%m-%d")
-YESTERDAY_YMD = '2025-09-24'
+YESTERDAY_YMD = yesterday.strftime("%Y-%m-%d")
+#YESTERDAY_YMD = '2025-09-24'
 BATCH_SIZE = 64
 IMAGE_PCA_COMPONENTS = 32
 
@@ -41,7 +41,7 @@ with DAG(dag_id='satellite_image_vectorization',
         start_date=datetime(2020, 2, 2),
         schedule='0 8 * * 1-5',
         catchup=False,
-        tags=['vectorization']
+        tags=['Vectorization']
 ):
     @task
     def fetch_preprocessed_image_from_s3():
