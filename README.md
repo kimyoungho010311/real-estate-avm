@@ -1,7 +1,7 @@
 # 🌬️Airflow 기반 아파트 가격 예측 데이터 파이프라인
 **(Automated Apartment Price Prediction Pipeline with Airflow)**
 
-본 프로젝트는 [멀티 모달 데이터를 이용한 TCN 기반 시나리오별 아파트 가격 예측 연구]논문의 모델을 지속적으로 운영하기 위해 구축한 **End-to-End** 데이터 파이프라인입니다.  
+본 프로젝트는 [멀티 모달 데이터를 이용한 TCN 기반 시나리오별 아파트 가격 예측 연구](https://github.com/kimyoungho010311/APT-TCN)논문의 모델을 지속적으로 운영하기 위해 구축한 **End-to-End** 데이터 파이프라인입니다.  
 매일/매월 갱신되는 부동산 및 경제 데이터를 수집하고, 전처리 및 모델 추론 과정을 Apache Airflow로 자동화하였습니다.
 
 ## 1. 프로젝트 개요
